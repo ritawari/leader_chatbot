@@ -1,4 +1,4 @@
-# मोदी चैटबॉट — Modi Chatbot
+# Leader Chatbot
 
 A tone-aware chatbot that responds in Hindi as Narendra Modi with dynamic color-coded messages, built with Next.js and powered by Groq (LLaMA 3.3 70B).
 
