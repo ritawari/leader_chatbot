@@ -16,27 +16,6 @@ A tone-aware chatbot that responds in Hindi as Narendra Modi with dynamic color-
 - [Groq SDK](https://groq.com/) — LLaMA 3.3 70B Versatile
 - [Tailwind CSS v4](https://tailwindcss.com/)
 
-## Getting Started
-
-1. Clone the repo
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create a `.env.local` file:
-   ```
-   GROQ_API_KEY=your_groq_api_key_here
-   ```
-   Get a free key at [console.groq.com/keys](https://console.groq.com/keys)
-
-4. Run the dev server:
-   ```bash
-   npm run dev
-   ```
-5. Open [http://localhost:3000](http://localhost:3000)
-
-## Project Structure
-
 ```
 app/
   page.tsx              # Chat UI
@@ -51,10 +30,4 @@ lib/
 .env.example            # Environment variable template
 ```
 
-## Deployment
 
-Deploy to Vercel:
-1. Push this repo to GitHub
-2. Import at [vercel.com/new](https://vercel.com/new)
-3. Add `GROQ_API_KEY` in the Vercel environment variables
-4. Deploy
