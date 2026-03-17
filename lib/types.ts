@@ -3,8 +3,8 @@ export type MessageType = "deadline" | "number" | "tone";
 export interface ChatApiResponse {
   type: MessageType;
   colorValue: number;
-  hoursRemaining?: number;
-  numberValue?: number;
+  bgColor: string;
+  textColor: string;
   hindiResponse: string;
   englishTranslation: string;
 }

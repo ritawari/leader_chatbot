@@ -21,19 +21,26 @@ jest.mock("groq-sdk", () => {
 import { NextRequest } from "next/server";
 import { POST } from "./route";
 import Groq from "groq-sdk";
+import { signEmail, COOKIE_NAME } from "@/lib/auth";
 
 const mockCreate = (Groq as unknown as { _create: jest.Mock })._create;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+let signedCookie: string;
+
+beforeAll(async () => {
+  signedCookie = await signEmail("test@petasight.com");
+});
+
 function makeReq(body: object, ip = "10.0.0.1", authed = true): NextRequest {
   return new NextRequest("http://localhost/api/chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "x-forwarded-for": ip,
-      ...(authed ? { Cookie: "auth_email=test@petasight.com" } : {}),
+      ...(authed ? { Cookie: `${COOKIE_NAME}=${signedCookie}` } : {}),
     },
     body: JSON.stringify(body),
   });
@@ -89,7 +96,7 @@ describe("Input validation", () => {
     const res = await POST(makeReq({}));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/invalid message/i);
+    expect(body.error).toMatch(/invalid/i);
   });
 
   test("non-string message → 400", async () => {

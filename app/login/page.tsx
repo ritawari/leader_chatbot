@@ -49,7 +49,7 @@ export default function LoginPage() {
           <div className="w-14 h-14 rounded-full bg-orange-700 flex items-center justify-center text-white font-bold text-lg mb-4">
             NM
           </div>
-          <h1 className="text-xl font-bold text-gray-900">मोदी चैटबॉट</h1>
+          <h1 className="text-xl font-bold text-gray-900" lang="hi">मोदी चैटबॉट</h1>
           <p className="text-sm text-gray-500 mt-1">Sign in with your Petasight email</p>
         </div>
 
@@ -73,7 +73,7 @@ export default function LoginPage() {
               required
               aria-describedby={error ? "login-error" : undefined}
               aria-invalid={error ? "true" : undefined}
-              className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-700 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="rounded-xl border border-gray-400 px-4 py-2.5 text-sm text-gray-900 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-700 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
           </div>
 

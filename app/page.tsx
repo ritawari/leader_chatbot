@@ -25,7 +25,7 @@ function getTypeLabel(type: MessageType, colorValue: number): string {
 function TypingIndicator() {
   return (
     <div className="flex items-end gap-3 mb-4" role="status" aria-label="Modi is typing">
-      <div className="w-8 h-8 rounded-full bg-orange-700 flex items-center justify-center text-white text-xs font-bold shrink-0">
+      <div className="w-8 h-8 rounded-full bg-orange-700 flex items-center justify-center text-white text-xs font-bold shrink-0" aria-hidden="true">
         NM
       </div>
       <div className="flex gap-1 bg-gray-100 rounded-2xl rounded-bl-none px-4 py-3">
@@ -70,7 +70,7 @@ function MessageBubble({ msg }: { msg: Message }) {
       >
         {msg.type != null && msg.colorValue != null && (
           <p
-            className="text-xs font-semibold mb-1.5 opacity-70"
+            className="text-xs font-semibold mb-1.5"
             aria-label={`Message type: ${getTypeLabel(msg.type, msg.colorValue)}`}
           >
             {getTypeLabel(msg.type, msg.colorValue)}
@@ -80,7 +80,7 @@ function MessageBubble({ msg }: { msg: Message }) {
           {msg.hindiText}
         </p>
         <p
-          className="text-sm mt-2 leading-relaxed opacity-90 border-t pt-2"
+          className="text-sm mt-2 leading-relaxed border-t pt-2"
           style={{ borderColor: msg.textColor === "#ffffff" ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.2)" }}
         >
           {msg.englishText}
@@ -90,17 +90,24 @@ function MessageBubble({ msg }: { msg: Message }) {
   );
 }
 
+type HistoryEntry = { role: "user" | "assistant"; content: string };
+
 export default function ChatPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState<HistoryEntry[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const sendingRef = useRef(false);
 
   async function signOut() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      router.push("/login");
+    }
   }
 
   useEffect(() => {
@@ -109,7 +116,8 @@ export default function ChatPage() {
 
   async function sendMessage() {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text || sendingRef.current) return;
+    sendingRef.current = true;
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -119,18 +127,18 @@ export default function ChatPage() {
 
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    if (inputRef.current) inputRef.current.style.height = "auto";
     setLoading(true);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, history: conversationHistory.slice(-6) }),
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error ?? "Something went wrong. Please try again.");
+        throw new Error("Something went wrong. Please try again.");
       }
       const data = await res.json();
 
@@ -147,13 +155,18 @@ export default function ChatPage() {
       };
 
       setMessages((prev) => [...prev, botMsg]);
-    } catch (err) {
+      setConversationHistory((prev) => [
+        ...prev,
+        { role: "user", content: text },
+        { role: "assistant", content: data.hindiResponse },
+      ]);
+    } catch {
       const errorMsg: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
         userText: text,
         hindiText: "क्षमा करें, कुछ त्रुटि हो गई।",
-        englishText: err instanceof Error ? err.message : "Sorry, something went wrong. Please try again.",
+        englishText: "Something went wrong. Please try again.",
         bgColor: "#dc2626",
         textColor: "#ffffff",
         type: "tone",
@@ -161,6 +174,7 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, errorMsg]);
     } finally {
       setLoading(false);
+      sendingRef.current = false;
       inputRef.current?.focus();
     }
   }
@@ -172,8 +186,20 @@ export default function ChatPage() {
     }
   }
 
+  function handleInput(e: React.FormEvent<HTMLTextAreaElement>) {
+    const el = e.currentTarget;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
+      <a
+        href="#chat-input"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-white focus:text-orange-700 focus:rounded-lg focus:shadow focus:outline-none"
+      >
+        Skip to input
+      </a>
       {/* Header */}
       <header className="bg-orange-700 text-white px-4 py-3 shadow-md shrink-0">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
@@ -181,14 +207,14 @@ export default function ChatPage() {
             NM
           </div>
           <div className="flex-1">
-            <h1 className="font-bold text-lg leading-tight">मोदी चैटबॉट</h1>
+            <h1 className="font-bold text-lg leading-tight" lang="hi">मोदी चैटबॉट</h1>
             <p className="text-white text-xs">
               Modi Chatbot &mdash; Responds in Hindi with English translation
             </p>
           </div>
           <button
             onClick={signOut}
-            className="text-xs text-white/80 hover:text-white border border-white/30 hover:border-white/60 rounded-lg px-3 py-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-orange-700"
+            className="text-xs text-white hover:text-white border border-white/30 hover:border-white/60 rounded-lg px-3 py-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-orange-700"
           >
             Sign out
           </button>
@@ -196,7 +222,7 @@ export default function ChatPage() {
       </header>
 
       {/* Color legend */}
-      <div className="bg-white border-b border-gray-200 shrink-0">
+      <nav aria-label="Color coding guide" className="bg-white border-b border-gray-200 shrink-0">
         <div className="max-w-2xl mx-auto px-4 py-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-600">
           <span><span className="inline-block w-2 h-2 rounded-full bg-blue-600 mr-1 align-middle" aria-hidden="true" />Blue = task ≥24h deadline</span>
           <span><span className="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-1 align-middle" aria-hidden="true" />Yellow = 12h deadline</span>
@@ -204,16 +230,16 @@ export default function ChatPage() {
           <span><span className="inline-block w-2 h-2 rounded-full bg-gray-400 mr-1 align-middle" aria-hidden="true" />White→Grey→Black = number</span>
           <span><span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1 align-middle" aria-hidden="true" />Red→White→Green = tone</span>
         </div>
-      </div>
+      </nav>
 
       {/* Empty state — outside role="log" so it's accessible but doesn't pollute live region */}
       {messages.length === 0 && (
-        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 select-none px-4">
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-600 select-none px-4">
           <p className="text-3xl mb-3" aria-hidden="true">🇮🇳</p>
           <p className="text-sm text-center">
             Type a task with a deadline, a number, or anything on your mind.
           </p>
-          <p className="text-xs mt-1 text-gray-300 text-center">
+          <p className="text-xs mt-1 text-gray-500 text-center">
             Press Enter to send &bull; Shift+Enter for new line
           </p>
         </div>
@@ -222,16 +248,17 @@ export default function ChatPage() {
       {/* Message area */}
       <main
         className="flex-1 overflow-y-auto px-4 py-4"
-        role="log"
-        aria-label="Conversation"
+        tabIndex={0}
         hidden={messages.length === 0 && !loading}
       >
-        <div className="max-w-2xl mx-auto">
-          {messages.map((msg) => (
-            <MessageBubble key={msg.id} msg={msg} />
-          ))}
-          {loading && <TypingIndicator />}
-          <div ref={bottomRef} />
+        <div role="log" aria-label="Conversation" aria-live="polite">
+          <div className="max-w-2xl mx-auto">
+            {messages.map((msg) => (
+              <MessageBubble key={msg.id} msg={msg} />
+            ))}
+            {loading && <TypingIndicator />}
+            <div ref={bottomRef} />
+          </div>
         </div>
       </main>
 
@@ -246,11 +273,12 @@ export default function ChatPage() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onInput={handleInput}
             onKeyDown={handleKeyDown}
             placeholder="Type a task + deadline, a number, or any message…"
             rows={1}
             disabled={loading}
-            className="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-700 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed leading-relaxed"
+            className="flex-1 resize-none rounded-xl border border-gray-400 px-4 py-2.5 text-sm text-gray-900 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-700 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed leading-relaxed"
             style={{ maxHeight: "120px", overflowY: "auto" }}
           />
           <button

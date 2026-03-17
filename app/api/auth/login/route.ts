@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { signEmail, COOKIE_NAME } from "@/lib/auth";
 
-const COOKIE_MAX_AGE = 60 * 60 * 8; // 8 hours
+const COOKIE_MAX_AGE = 60 * 60 * 8;
 
 export async function POST(req: NextRequest) {
   const { email } = await req.json().catch(() => ({}));
 
-  if (typeof email !== "string" || !email.endsWith("@petasight.com")) {
+  const normalized = typeof email === "string" ? email.trim().toLowerCase() : "";
+  if (!/^[^\s@]+@petasight\.com$/.test(normalized)) {
     return NextResponse.json(
       { error: "Access restricted to @petasight.com email addresses." },
       { status: 401 }
     );
   }
 
+  const cookieValue = await signEmail(normalized);
   const res = NextResponse.json({ ok: true });
-  res.cookies.set("auth_email", email.trim().toLowerCase(), {
+  res.cookies.set(COOKIE_NAME, cookieValue, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import { getBubbleColor, wcagTextColor } from "@/lib/colors";
 import { ChatApiResponse, MessageType } from "@/lib/types";
+import { verifySignedCookie, COOKIE_NAME } from "@/lib/auth";
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -103,7 +104,8 @@ PERSONA RULES:
 
 export async function POST(req: NextRequest) {
   try {
-    const authEmail = req.cookies.get("auth_email")?.value;
+    const cookieValue = req.cookies.get(COOKIE_NAME)?.value;
+    const authEmail = cookieValue ? await verifySignedCookie(cookieValue) : null;
     if (!authEmail?.endsWith("@petasight.com")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -113,8 +115,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Too many requests. Please wait a moment." }, { status: 429 });
     }
 
-    const { message } = await req.json();
-    if (!message || typeof message !== "string") {
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body.message !== "string") {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
+    const { message, history } = body;
+    if (!message.trim()) {
       return NextResponse.json({ error: "Invalid message" }, { status: 400 });
     }
     if (message.length > MAX_MESSAGE_LENGTH) {
@@ -124,21 +130,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    type HistoryEntry = { role: "user" | "assistant"; content: string };
+    const safeHistory: HistoryEntry[] = Array.isArray(history)
+      ? history
+          .filter(
+            (h): h is HistoryEntry =>
+              h != null &&
+              (h.role === "user" || h.role === "assistant") &&
+              typeof h.content === "string"
+          )
+          .slice(-6)
+      : [];
+
     const completion = await client.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT(new Date().toISOString()) },
+        ...safeHistory,
         { role: "user", content: message },
       ],
       temperature: 0.7,
       max_tokens: 500,
-    });
+    }, { timeout: 30_000 });
 
+    if (!completion.choices?.length) throw new Error("Empty response from LLM");
     const raw = completion.choices[0].message.content ?? "{}";
-    let parsed: Partial<ChatApiResponse>;
+    type LLMResponse = Partial<ChatApiResponse> & { numberValue?: number; hoursRemaining?: number };
+    let parsed: LLMResponse;
     try {
-      parsed = JSON.parse(raw) as Partial<ChatApiResponse>;
+      parsed = JSON.parse(raw) as LLMResponse;
     } catch {
       console.error("LLM returned malformed JSON:", raw);
       const fallbackBg = getBubbleColor("tone", 0.5);
